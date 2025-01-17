@@ -1,0 +1,7 @@
+/laundary/node_modules/
+/Server/node_modules/
+.env
+.DS_Store
+npm-debug.log*
+*.log
+*.db
