@@ -30,13 +30,13 @@ This project is a full-stack laundry service platform that connects users with l
 4. Start the frontend:
    ```bash
    cd frontend
-   npm start
+   npm run dev
    ```
 
 5. Start the backend:
    ```bash
    cd backend
-   npm start
+   npm run dev
    ```
 
 ## License
