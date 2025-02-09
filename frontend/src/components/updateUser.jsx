@@ -8,13 +8,12 @@ const UserUpdate = () => {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
-  const [userId, setUserId] = useState(null);
+  const [email, setEmail] = useState(""); 
 
   useEffect(() => {
-    // Fetch userId from local storage (Assuming it's stored after login)
-    const storedUserId = localStorage.getItem("id");
-    if (storedUserId) {
-      setUserId(storedUserId);
+    const emailFromSession = sessionStorage.getItem("email"); 
+    if (emailFromSession) {
+      setEmail(emailFromSession); 
     } else {
       setMessage({ type: "error", text: "User not logged in. Please log in first!" });
     }
@@ -22,19 +21,22 @@ const UserUpdate = () => {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-
-    if (!userId) {
-      setMessage({ type: "error", text: "User ID not found. Please log in again!" });
+    
+    const email = sessionStorage.getItem("email"); 
+    console.log("Email from sessionStorage:", email); // Debugging
+    
+    if (!email) {
+      setMessage({ type: "error", text: "Email not found. Please log in again!" });
       return;
     }
-
+  
     try {
-      const response = await axios.post("http://localhost:3000/update-user", {
-        userId,
-        phone,
-        address,
-      });
-
+      const response = await axios.post(
+        "http://localhost:3000/update-user",
+        { email, phone, address },
+        { withCredentials: true } // Important for session handling
+      );
+  
       setMessage({ type: "success", text: response.data.message });
       setPhone("");
       setAddress("");
@@ -42,7 +44,7 @@ const UserUpdate = () => {
       setMessage({ type: "error", text: "Failed to update details. Try again!" });
     }
   };
-
+  
   return (
     <>
       <Header />

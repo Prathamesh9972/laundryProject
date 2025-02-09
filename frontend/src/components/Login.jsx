@@ -10,24 +10,30 @@ function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+  
     try {
       const response = await axios.post(
-        "http://localhost:3000/login",
+        "http://localhost:3000/login", 
         { username, password },
         { withCredentials: true }
       );
-
+  
       if (response.status === 200) {
-        window.location.href = "/secrets";
+        const email = response.data.email;
+  
+        // Store the email in sessionStorage instead of localStorage
+        sessionStorage.setItem("email", email);
+  
+        window.location.href = "/secrets"; 
       } else {
-        alert("Login Failed Please Check Username or Password");
+        alert("Login Failed! Please check your username or password.");
       }
     } catch (error) {
-      alert("Login Failed Please Check Username or Password");
+      alert("Login Failed! Please check your username or password.");
       console.error("Error logging in:", error);
     }
   };
-
+  
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:3000/auth/google";
   };
