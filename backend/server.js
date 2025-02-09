@@ -6,7 +6,7 @@ import passport from "passport";
 import { Strategy } from "passport-local";
 import session from "express-session";
 import cors from "cors";
-import env from "dotenv";
+import dotenv from "dotenv";
 import GoogleStrategy from "passport-google-oauth2";
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
@@ -19,10 +19,10 @@ import serviceProviderApp from "./serviceProviderServer.js";
 const app = express();
 const port = 3000;
 const saltRounds = 10;
-env.config();
+dotenv.config();
 
 app.use(cors({
-  origin: "http://localhost:5173", // React app running on port 3001
+  origin: "http://localhost:5173", 
   credentials: true
 }));
 
@@ -92,6 +92,37 @@ app.post(
     failureRedirect: "/login",
   })
 );
+
+
+//Update User ------------------------------------------------------------------------------
+app.post("/update-user", (req, res) => {
+  const { phone, address } = req.body;
+
+  const email = req.session.email;
+
+  if (!email) {
+    return res.status(401).json({ message: "User not logged in. Please log in first!" });
+  }
+
+  if (!phone || !address) {
+    return res.status(400).json({ message: "Phone and address are required" });
+  }
+
+  const query = `UPDATE userdetails SET phone = ?, address = ? WHERE email = ?`;
+
+  db.query(query, [phone, address, email], (err, result) => {
+    if (err) {
+      console.error("Error updating user details:", err);
+      return res.status(500).json({ message: "Failed to update details. Try again!" });
+    }
+
+    if (result.affectedRows > 0) {
+      return res.json({ message: "User details updated successfully!" });
+    } else {
+      return res.status(404).json({ message: "User not found." });
+    }
+  });
+});
 
 
 app.get(
@@ -321,59 +352,6 @@ passport.deserializeUser((id, done) => {
 });
 
 
-//Update Users code
-app.post("/update-user", (req, res) => {
-  const { userId, phone, address } = req.body;
-
-  // Check if the user exists in the 'users' table
-  db.query(
-    "SELECT id FROM users WHERE id = ?",
-    [userId],
-    (err, results) => {
-      if (err) {
-        console.error("Error checking user existence:", err);
-        return res.status(500).json({ error: "Internal server error" });
-      }
-
-      if (results.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // If user exists, proceed to update or insert into 'userdetails'
-      db.query(
-        'INSERT INTO userdetails (userId, mobile, address) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE mobile = ?, address = ?',
-        [userId, phone, address, phone, address],
-        (err, results) => {
-          if (err) {
-            console.error("Error updating user details:", err);
-            return res.status(500).json({ error: "Internal server error" });
-          }
-
-          res.json({ message: "User details updated successfully" });
-        }
-      );
-    }
-  );
-});
-
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- // -----------------------------------------------------------------------------
 
 
 function ensureAuthenticatedu(req, res, next) {

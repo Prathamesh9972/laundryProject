@@ -20,7 +20,7 @@
     "dayjs": "^1.11.12",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
-    "express-session": "^1.18.0",
+    "express-session": "^1.18.1",
     "fs": "^0.0.1-security",
     "geolib": "^3.3.4",
     "helmet": "^8.0.0",
