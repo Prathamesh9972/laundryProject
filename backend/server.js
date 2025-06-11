@@ -15,6 +15,10 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 import dayjs from "dayjs";
 import serviceProviderApp from "./serviceProviderServer.js";
+import { v4 as uuidv4 } from 'uuid';
+import square from 'square';
+const { Client, environments } = square;
+import axios from "axios";
 
 const app = express();
 const port = 3000;
@@ -1075,10 +1079,125 @@ app.post('/userlogout', (req, res) => {
   });
 });
 
+const squareClient = new Client({
+  accessToken: 'EAAAl23jLxob45rFiCf1Wttbp2PAMgPqkUtFOtLYZChhaSQeZmGxFlHDbBH2OR97',
+  environment: 'sandbox',
+});
+
+let pendingOrders = {}; // In production, use a real DB
+
+app.post('/api/create-checkout', async (req, res) => {
+  try {
+    const { selectedServices } = req.body;
+    console.log('Selected Services:', selectedServices);
+
+    const lineItems = selectedServices.map(service => ({
+  name: service.serviceName, // <-- this was the bug
+  quantity: service.quantity.toString(),
+  basePriceMoney: {
+    amount: Math.round(parseFloat(service.price) * 100),
+    currency: 'USD'
+  }
+}));
 
 
+    const idempotencyKey = uuidv4();
+    const locationId = 'LKJP0M59AB3K9';
+    pendingOrders[idempotencyKey] = {
+      userId: req.body.userId,
+      customerDetails: req.body.customerDetails,
+      providerId: req.body.providerId,
+      totalAmount: req.body.totalAmount,
+      pickupTime: req.body.pickupTime,
+      dropoffTime: req.body.dropoffTime,
+      selectedServices
+    };
+
+    const { checkoutApi } = squareClient;
+
+    const response = await checkoutApi.createCheckout(locationId, {
+      idempotencyKey,
+      order: {
+        order: {
+          locationId,
+          lineItems
+        }
+      },
+      redirectUrl: `http://localhost:3000/payment-success?token=${idempotencyKey}`
+    });
+
+    const checkoutUrl = response.result.checkout.checkoutPageUrl;
+    res.status(200).json({ checkoutUrl });
+
+  } catch (error) {
+    console.error('Checkout creation failed:', error);
+    res.status(500).json({
+      message: 'Checkout creation failed',
+      detail: error.message || error
+    });
+  }
+});
 
 
+app.get('/payment-success', async (req, res) => {
+  console.log(req.query);
+  const token = req.query.token;
+  console.log('Payment success token:', token);
+  const orderData = pendingOrders[token];
+  if (!orderData) {
+    return res.status(400).send('Invalid or expired session.');
+  }
+
+  try {
+    // Step 1: Create Order
+    const orderResponse = await axios.post('http://localhost:3000/api/order', {
+      customerID: orderData.userId,
+      name: orderData.customerDetails.name,
+      email: orderData.customerDetails.email,
+      phone: orderData.customerDetails.phone,
+      address: orderData.customerDetails.address,
+      providerId: orderData.providerId,
+      totalAmount: orderData.totalAmount,
+      pickupTime: orderData.pickupTime,
+      dropoffTime: orderData.dropoffTime
+    });
+
+    const orderId = orderResponse.data.orderId;
+
+    // Step 2: Create Order Items
+    await Promise.all(orderData.selectedServices.map(service =>
+      axios.post('http://localhost:3000/api/orderitem', {
+        orderID: orderId,
+        serviceID: service.serviceId,
+        quantity: service.quantity,
+        price: service.price
+      })
+    ));
+
+    // Optional: Send emails
+    await axios.post('http://localhost:3000/user/send-orderconfirmation', {
+      userem: orderData.customerDetails.email,
+      orderId,
+      details: orderData.selectedServices,
+      total: orderData.totalAmount
+    });
+
+    await axios.post('http://localhost:3000/provider/send-orderconfirmation', {
+      orderId,
+      details: orderData.selectedServices,
+      total: orderData.totalAmount
+    });
+
+    // Clean up memory
+    delete pendingOrders[token];
+
+    // Redirect to confirmation page (frontend)
+    res.redirect('http://localhost:5173/orders');
+  } catch (err) {
+    console.error('Payment success handling failed:', err);
+    res.status(500).send('Order could not be processed.');
+  }
+});
 
 
 app.use("/service-provider", serviceProviderApp);
