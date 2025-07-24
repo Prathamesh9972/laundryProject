@@ -69,59 +69,21 @@ function CheckoutPage() {
       const { name, email, phone, address } = customerDetails;
 
       // Create order
-      const orderResponse = await axios.post('http://localhost:3000/api/order', {
-        customerID: userId, // Use the fetched user ID
-        name,
-        email,
-        phone,
-        address,
-        providerId,
-        totalAmount,
-        pickupTime,
-        dropoffTime
-      });
+      const response = await axios.post('http://localhost:3000/api/create-checkout', {
+      userId,
+      customerDetails,
+      providerId,
+      pickupTime,
+      dropoffTime,
+      selectedServices,
+      totalAmount
+    });
 
-      const orderId = orderResponse.data.orderId;
-
-      // Create order items
-      await Promise.all(selectedServices.map(service =>
-        axios.post('http://localhost:3000/api/orderitem', {
-          orderID: orderId,
-          serviceID: service.serviceId,
-          quantity: service.quantity,
-          price: service.price
-        })
-      ));
-
-
-      await axios.post('http://localhost:3000/user/send-orderconfirmation',{
-        userem:email,
-        orderId:orderId,
-        details:selectedServices,
-        total:totalAmount
-
-      } );
-
-     
-
-
-      // Send email to the provider
-      await axios.post('http://localhost:3000/provider/send-orderconfirmation', {
-        orderId: orderId,
-        details: selectedServices,
-        total: totalAmount
-      });
-
-
-      alert("Orderd Confirmed! Please Check mail for confirmation");
-      
-
-      // Redirect to order confirmation or success page
-      navigate('/orders');
-    } catch (error) {
-      console.error('Failed to confirm order:', error);
-      setError('Failed to confirm order');
-    }
+    window.location.href = response.data.checkoutUrl;
+  } catch (err) {
+    console.error(err);
+    setError("Checkout initialization failed");
+  }
   };
 
   return (
